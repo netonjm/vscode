@@ -153,11 +153,23 @@ function getMermaidWebviewContent(mermaidCode: string, isComplete: boolean): str
 			justify-content: center;
 			align-items: center;
 			min-height: 150px;
+			overflow: auto;
+			position: relative;
+			cursor: grab;
+		}
+		#diagram-container.panning {
+			cursor: grabbing;
+		}
+		#diagram-wrapper {
+			display: inline-block;
+			transform-origin: center center;
+			transition: transform 0.1s ease-out;
 		}
 		#diagram {
 			max-width: 100%;
 			opacity: 0;
 			transition: opacity 0.2s ease-in;
+			user-select: none;
 		}
 		#diagram.visible {
 			opacity: 1;
@@ -230,7 +242,9 @@ function getMermaidWebviewContent(mermaidCode: string, isComplete: boolean): str
 	</div>
 	<div id="diagram-container">
 		<div class="loading" id="loading">Rendering diagram...</div>
-		<div id="diagram"></div>
+		<div id="diagram-wrapper">
+			<div id="diagram"></div>
+		</div>
 	</div>
 	<script>
 		const mermaidCode = \`${escapedCode}\`;
@@ -254,6 +268,7 @@ function getMermaidWebviewContent(mermaidCode: string, isComplete: boolean): str
 
 		async function renderDiagram() {
 			const container = document.getElementById('diagram');
+			const diagramWrapper = document.getElementById('diagram-wrapper');
 			const diagramContainer = document.getElementById('diagram-container');
 			const loadingEl = document.getElementById('loading');
 			const header = document.getElementById('header');
@@ -281,6 +296,9 @@ function getMermaidWebviewContent(mermaidCode: string, isComplete: boolean): str
 				if (loadingEl) loadingEl.style.display = 'none';
 				container.classList.add('visible');
 
+				// Initialize zoom and pan controls
+				initZoomAndPan(diagramWrapper, diagramContainer);
+
 			} catch (error) {
 				// Show fallback with error message and original code
 				header.classList.add('error-header');
@@ -295,6 +313,73 @@ function getMermaidWebviewContent(mermaidCode: string, isComplete: boolean): str
 				\`;
 				if (loadingEl) loadingEl.style.display = 'none';
 				container.classList.add('visible');
+			}
+		}
+
+		// Zoom and Pan functionality
+		function initZoomAndPan(wrapper, container) {
+			let scale = 1;
+			let isPanning = false;
+			let startX = 0;
+			let startY = 0;
+			let translateX = 0;
+			let translateY = 0;
+
+			// Zoom with mouse wheel or trackpad pinch
+			container.addEventListener('wheel', (e) => {
+				e.preventDefault();
+				
+				const delta = e.deltaY;
+				const zoomIntensity = 0.1;
+				
+				// Calculate new scale
+				const newScale = delta > 0 
+					? scale * (1 - zoomIntensity) 
+					: scale * (1 + zoomIntensity);
+				
+				// Limit zoom range
+				scale = Math.min(Math.max(0.5, newScale), 3);
+				
+				updateTransform();
+			}, { passive: false });
+
+			// Pan with mouse drag
+			container.addEventListener('mousedown', (e) => {
+				isPanning = true;
+				startX = e.clientX - translateX;
+				startY = e.clientY - translateY;
+				container.classList.add('panning');
+			});
+
+			container.addEventListener('mousemove', (e) => {
+				if (!isPanning) return;
+				
+				translateX = e.clientX - startX;
+				translateY = e.clientY - startY;
+				
+				updateTransform();
+			});
+
+			container.addEventListener('mouseup', () => {
+				isPanning = false;
+				container.classList.remove('panning');
+			});
+
+			container.addEventListener('mouseleave', () => {
+				isPanning = false;
+				container.classList.remove('panning');
+			});
+
+			// Double-click to reset zoom
+			container.addEventListener('dblclick', () => {
+				scale = 1;
+				translateX = 0;
+				translateY = 0;
+				updateTransform();
+			});
+
+			function updateTransform() {
+				wrapper.style.transform = \`translate(\${translateX}px, \${translateY}px) scale(\${scale})\`;
 			}
 		}
 
