@@ -234,25 +234,32 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 
 					// Async check for extension renderer
 					codeBlockRendererService.findRenderer(codeBlockContext, CancellationToken.None).then(async rendererId => {
-						if (rendererId && normalCodeBlockElement) {
+						if (rendererId && normalCodeBlockElement && !this._store.isDisposed) {
 							try {
 								const renderedPart = await codeBlockRendererService.renderCodeBlock(rendererId, codeBlockContext, extensionRendererContainer, CancellationToken.None);
-								this._register(renderedPart);
+								if (!this._store.isDisposed) {
+									this._register(renderedPart);
 
-								// Hide the normal code block and show extension renderer
-								extensionRendererContainer.style.display = 'block';
-								normalCodeBlockElement.style.display = 'none';
+									// Hide the normal code block and show extension renderer
+									extensionRendererContainer.style.display = 'block';
+									normalCodeBlockElement.style.display = 'none';
 
-								this._register(renderedPart.onDidChangeHeight(height => {
-									extensionRendererContainer.style.height = `${height}px`;
+									this._register(renderedPart.onDidChangeHeight(height => {
+										extensionRendererContainer.style.height = `${height}px`;
+										this._onDidChangeHeight.fire();
+									}));
 									this._onDidChangeHeight.fire();
-								}));
-								this._onDidChangeHeight.fire();
+								} else {
+									// Part was disposed while rendering, clean up the rendered part
+									renderedPart.dispose();
+								}
 							} catch (e) {
 								// Rendering failed - show the normal code block as fallback
 								console.warn('Failed to render code block with extension renderer, falling back to default:', e);
-								extensionRendererContainer.style.display = 'none';
-								normalCodeBlockElement.style.display = '';
+								if (!this._store.isDisposed) {
+									extensionRendererContainer.style.display = 'none';
+									normalCodeBlockElement.style.display = '';
+								}
 							}
 						}
 					}).catch(e => {
