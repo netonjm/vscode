@@ -71,6 +71,17 @@ export interface IChatCodeBlockRendererService {
 	 * Render a code block using a registered renderer.
 	 */
 	renderCodeBlock(rendererId: string, context: IChatCodeBlockContext, parent: HTMLElement, token: CancellationToken): Promise<RenderedCodeBlockPart>;
+
+	/**
+	 * Find all renderers that can handle the given code block.
+	 * Returns an array of renderer IDs.
+	 */
+	findAllRenderers(context: IChatCodeBlockContext, token: CancellationToken): Promise<string[]>;
+
+	/**
+	 * Get the display name for a renderer.
+	 */
+	getRendererDisplayName(rendererId: string): string | undefined;
 }
 
 export interface RenderedCodeBlockPart extends IDisposable {
@@ -90,6 +101,7 @@ export class ChatCodeBlockRendererService extends Disposable implements IChatCod
 
 	private readonly _contributions = new Map</*id*/ string, {
 		readonly languageIds: readonly string[];
+		readonly displayName: string;
 	}>();
 
 	private readonly _renderers = new Map</*id*/ string, RendererEntry>();
@@ -119,6 +131,11 @@ export class ChatCodeBlockRendererService extends Disposable implements IChatCod
 		};
 	}
 
+	getRendererDisplayName(rendererId: string): string | undefined {
+		const contribution = this._contributions.get(rendererId);
+		return contribution?.displayName;
+	}
+
 	async findRenderer(context: IChatCodeBlockContext, token: CancellationToken): Promise<string | undefined> {
 		await raceCancellationError(this._extensionService.whenInstalledExtensionsRegistered(), token);
 
@@ -146,6 +163,36 @@ export class ChatCodeBlockRendererService extends Disposable implements IChatCod
 		}
 
 		return undefined;
+	}
+
+	async findAllRenderers(context: IChatCodeBlockContext, token: CancellationToken): Promise<string[]> {
+		await raceCancellationError(this._extensionService.whenInstalledExtensionsRegistered(), token);
+
+		const rendererIds: string[] = [];
+
+		for (const [id, contribution] of this._contributions) {
+			if (contribution.languageIds.length > 0 && !contribution.languageIds.includes(context.languageId)) {
+				continue;
+			}
+
+			// Activate the extension
+			try {
+				await raceCancellationError(this._extensionService.activateByEvent(`onChatCodeBlockRenderer:${id}`), token);
+
+				const entry = this._renderers.get(id);
+				if (entry) {
+					const shouldRender = await entry.renderer.shouldRenderCodeBlock(context, token);
+					if (shouldRender) {
+						rendererIds.push(id);
+					}
+				}
+			} catch (e) {
+				// Continue to next renderer
+				console.error(`Error checking renderer ${id}:`, e);
+			}
+		}
+
+		return rendererIds;
 	}
 
 	async renderCodeBlock(rendererId: string, context: IChatCodeBlockContext, parent: HTMLElement, token: CancellationToken): Promise<RenderedCodeBlockPart> {
@@ -211,6 +258,7 @@ export class ChatCodeBlockRendererService extends Disposable implements IChatCod
 
 				this._contributions.set(contribution.id, {
 					languageIds: contribution.languageIds ?? [],
+					displayName: contribution.displayName,
 				});
 			}
 		}

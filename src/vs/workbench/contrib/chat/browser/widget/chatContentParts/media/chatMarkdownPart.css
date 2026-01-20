@@ -21,3 +21,46 @@
 		overflow: hidden;
 	}
 }
+
+/* Code block tabs styling */
+.chat-codeblock-wrapper {
+	display: flex;
+	flex-direction: column;
+}
+
+.chat-codeblock-tabs {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	padding: 0 8px;
+}
+
+.chat-codeblock-tab {
+	padding: 6px 12px;
+	cursor: pointer;
+	border-bottom: 2px solid transparent;
+	color: var(--vscode-foreground);
+	opacity: 0.7;
+	transition: opacity 0.2s, border-color 0.2s;
+	font-size: 13px;
+	user-select: none;
+}
+
+.chat-codeblock-tab:hover {
+	opacity: 0.9;
+}
+
+.chat-codeblock-tab.active {
+	opacity: 1;
+	border-bottom-color: var(--vscode-focusBorder);
+	font-weight: 600;
+}
+
+.chat-codeblock-content {
+	position: relative;
+}
+
+.chat-extension-codeblock-renderer {
+	width: 100%;
+}

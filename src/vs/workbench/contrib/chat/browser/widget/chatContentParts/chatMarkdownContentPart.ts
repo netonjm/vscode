@@ -221,49 +221,88 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 						isComplete: isCodeBlockComplete
 					};
 
-					// Create a wrapper that can switch between extension renderer and normal code block
+					// Create a wrapper for tabs and content
 					const wrapperContainer = $('div.chat-codeblock-wrapper');
+					const tabContainer = $('div.chat-codeblock-tabs');
+					const contentContainer = $('div.chat-codeblock-content');
+					wrapperContainer.appendChild(tabContainer);
+					wrapperContainer.appendChild(contentContainer);
 
-					// Create extension renderer container (initially hidden)
-					const extensionRendererContainer = $('div.chat-extension-codeblock-renderer');
-					extensionRendererContainer.style.display = 'none';
-					wrapperContainer.appendChild(extensionRendererContainer);
-
-					// Track the normal code block element (set later when rendered)
+					// Track rendered parts
 					let normalCodeBlockElement: HTMLElement | undefined;
+					const rendererElements: HTMLElement[] = [];
+					const tabElements: HTMLElement[] = [];
 
-					// Async check for extension renderer
-					codeBlockRendererService.findRenderer(codeBlockContext, CancellationToken.None).then(async rendererId => {
-						if (rendererId && normalCodeBlockElement && !this._store.isDisposed) {
+					// Function to switch between tabs
+					const switchToTab = (index: number) => {
+						tabElements.forEach((tab, i) => tab.classList.toggle('active', i === index));
+						rendererElements.forEach((el, i) => el.style.display = i === index ? 'block' : 'none');
+						if (normalCodeBlockElement) {
+							normalCodeBlockElement.style.display = index === rendererElements.length ? 'block' : 'none';
+						}
+						this._onDidChangeHeight.fire();
+					};
+
+					// Async: check for renderers and create tabs
+					codeBlockRendererService.findAllRenderers(codeBlockContext, CancellationToken.None).then(async rendererIds => {
+						if (rendererIds.length === 0 || this._store.isDisposed) {
+							return;
+						}
+
+						// Show tabs
+						tabContainer.style.display = 'flex';
+
+						// Create tabs and render each renderer
+						for (let i = 0; i < rendererIds.length; i++) {
+							const rendererId = rendererIds[i];
+							const displayName = codeBlockRendererService.getRendererDisplayName(rendererId) ?? rendererId;
+
+							// Create tab
+							const tab = $('div.chat-codeblock-tab');
+							tab.textContent = displayName;
+							tab.addEventListener('click', () => switchToTab(i));
+							tabElements.push(tab);
+							tabContainer.appendChild(tab);
+
+							// Create renderer container
+							const rendererContainer = $('div.chat-extension-codeblock-renderer');
+							rendererContainer.style.display = 'none';
+							rendererElements.push(rendererContainer);
+							contentContainer.appendChild(rendererContainer);
+
+							// Render
 							try {
-								const renderedPart = await codeBlockRendererService.renderCodeBlock(rendererId, codeBlockContext, extensionRendererContainer, CancellationToken.None);
+								const renderedPart = await codeBlockRendererService.renderCodeBlock(rendererId, codeBlockContext, rendererContainer, CancellationToken.None);
 								if (!this._store.isDisposed) {
 									this._register(renderedPart);
-
-									// Hide the normal code block and show extension renderer
-									extensionRendererContainer.style.display = 'block';
-									normalCodeBlockElement.style.display = 'none';
-
 									this._register(renderedPart.onDidChangeHeight(height => {
-										extensionRendererContainer.style.height = `${height}px`;
-										this._onDidChangeHeight.fire();
+										if (rendererContainer.style.display !== 'none') {
+											rendererContainer.style.height = `${height}px`;
+											this._onDidChangeHeight.fire();
+										}
 									}));
-									this._onDidChangeHeight.fire();
 								} else {
-									// Part was disposed while rendering, clean up the rendered part
 									renderedPart.dispose();
 								}
 							} catch (e) {
-								// Rendering failed - show the normal code block as fallback
-								console.warn('Failed to render code block with extension renderer, falling back to default:', e);
-								if (!this._store.isDisposed) {
-									extensionRendererContainer.style.display = 'none';
-									normalCodeBlockElement.style.display = '';
-								}
+								console.warn(`Failed to render code block with renderer ${rendererId}:`, e);
 							}
 						}
+
+						// Add "Code" tab
+						const codeTab = $('div.chat-codeblock-tab');
+						codeTab.textContent = 'Code';
+						codeTab.addEventListener('click', () => switchToTab(rendererIds.length));
+						tabElements.push(codeTab);
+						tabContainer.appendChild(codeTab);
+
+						// Hide normal code block and show first tab
+						if (normalCodeBlockElement) {
+							normalCodeBlockElement.style.display = 'none';
+						}
+						switchToTab(0);
 					}).catch(e => {
-						console.error('Error finding code block renderer:', e);
+						console.error('Error finding code block renderers:', e);
 					});
 					const globalIndex = globalCodeBlockIndexStart++;
 					const thisPartIndex = thisPartCodeBlockIndexStart++;
@@ -331,10 +370,11 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 						this._codeblocks.push(info);
 						orderedDisposablesList.push(ref);
 
-						// Add normal code block to wrapper and return wrapper
+						// Add normal code block to content container
 						ref.object.element.classList.add('chat-codeblock');
 						normalCodeBlockElement = ref.object.element;
-						wrapperContainer.appendChild(ref.object.element);
+						contentContainer.appendChild(ref.object.element);
+
 						return wrapperContainer;
 					} else {
 						const requestId = isRequestVM(element) ? element.id : element.requestId;
