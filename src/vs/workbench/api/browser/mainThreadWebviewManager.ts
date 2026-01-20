@@ -12,6 +12,7 @@ import { MainThreadWebviewsViews } from './mainThreadWebviewViews.js';
 import * as extHostProtocol from '../common/extHost.protocol.js';
 import { extHostCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { MainThreadChatOutputRenderer } from './mainThreadChatOutputRenderer.js';
+import { MainThreadChatCodeBlockRenderer } from './mainThreadChatCodeBlockRenderer.js';
 
 @extHostCustomer
 export class MainThreadWebviewManager extends Disposable {
@@ -35,5 +36,8 @@ export class MainThreadWebviewManager extends Disposable {
 
 		const chatOutputRenderers = this._register(instantiationService.createInstance(MainThreadChatOutputRenderer, context, webviews));
 		context.set(extHostProtocol.MainContext.MainThreadChatOutputRenderer, chatOutputRenderers);
+
+		const chatCodeBlockRenderers = this._register(instantiationService.createInstance(MainThreadChatCodeBlockRenderer, context, webviews));
+		context.set(extHostProtocol.MainContext.MainThreadChatCodeBlockRenderer, chatCodeBlockRenderers);
 	}
 }

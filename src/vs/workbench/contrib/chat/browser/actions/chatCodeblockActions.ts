@@ -351,6 +351,30 @@ export function registerChatCodeBlockActions() {
 		}
 	});
 
+	// Test button - For verifying we can insert things here
+	registerAction2(class TestFakeButtonAction extends ChatCodeBlockAction {
+		constructor() {
+			super({
+				id: 'workbench.action.chat.testFakeButton',
+				title: localize2('interactive.testFakeButton.label', "Test Button (Fake)"),
+				precondition: ChatContextKeys.enabled,
+				f1: false,
+				category: CHAT_CATEGORY,
+				icon: Codicon.beaker,
+				menu: {
+					id: MenuId.ChatCodeBlock,
+					group: 'navigation',
+					order: 25 // Between Insert At Cursor (20) and Copy (30)
+				}
+			});
+		}
+
+		override runWithContext(accessor: ServicesAccessor, context: ICodeBlockActionContext) {
+			// Just show a message - this is a test button
+			console.log('Test fake button clicked!', context);
+		}
+	});
+
 	registerAction2(class InsertIntoNewFileAction extends ChatCodeBlockAction {
 		constructor() {
 			super({

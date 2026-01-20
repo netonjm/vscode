@@ -12,6 +12,7 @@ import { HoverPosition } from '../../../../../../base/browser/ui/hover/hoverWidg
 import { DomScrollableElement } from '../../../../../../base/browser/ui/scrollbar/scrollableElement.js';
 import { coalesce } from '../../../../../../base/common/arrays.js';
 import { findLast } from '../../../../../../base/common/arraysFind.js';
+import { CancellationToken } from '../../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { Lazy } from '../../../../../../base/common/lazy.js';
@@ -49,6 +50,7 @@ import { IEditSessionEntryDiff } from '../../../common/editing/chatEditingServic
 import { IChatProgressRenderableResponseContent } from '../../../common/model/chatModel.js';
 import { IChatMarkdownContent, IChatService, IChatUndoStop } from '../../../common/chatService/chatService.js';
 import { isRequestVM, isResponseVM } from '../../../common/model/chatViewModel.js';
+import { IChatCodeBlockRendererService } from '../../chatCodeBlockRendererService.js';
 import { CodeBlockEntry, CodeBlockModelCollection } from '../../../common/widget/codeBlockModelCollection.js';
 import { ChatConfiguration } from '../../../common/constants.js';
 import { IChatCodeBlockInfo } from '../../chat.js';
@@ -210,6 +212,52 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 						this._register(chatExtensions.onDidChangeHeight(() => this._onDidChangeHeight.fire()));
 						return chatExtensions.domNode;
 					}
+
+					// Check if an extension wants to render this code block
+					const codeBlockRendererService = instantiationService.invokeFunction(accessor => accessor.get(IChatCodeBlockRendererService));
+					const codeBlockContext = {
+						languageId: languageId ?? '',
+						code: text,
+						isComplete: isCodeBlockComplete
+					};
+
+					// Create a wrapper that can switch between extension renderer and normal code block
+					const wrapperContainer = $('div.chat-codeblock-wrapper');
+
+					// Create extension renderer container (initially hidden)
+					const extensionRendererContainer = $('div.chat-extension-codeblock-renderer');
+					extensionRendererContainer.style.display = 'none';
+					wrapperContainer.appendChild(extensionRendererContainer);
+
+					// Track the normal code block element (set later when rendered)
+					let normalCodeBlockElement: HTMLElement | undefined;
+
+					// Async check for extension renderer
+					codeBlockRendererService.findRenderer(codeBlockContext, CancellationToken.None).then(async rendererId => {
+						if (rendererId && normalCodeBlockElement) {
+							try {
+								const renderedPart = await codeBlockRendererService.renderCodeBlock(rendererId, codeBlockContext, extensionRendererContainer, CancellationToken.None);
+								this._register(renderedPart);
+
+								// Hide the normal code block and show extension renderer
+								extensionRendererContainer.style.display = 'block';
+								normalCodeBlockElement.style.display = 'none';
+
+								this._register(renderedPart.onDidChangeHeight(height => {
+									extensionRendererContainer.style.height = `${height}px`;
+									this._onDidChangeHeight.fire();
+								}));
+								this._onDidChangeHeight.fire();
+							} catch (e) {
+								// Rendering failed - show the normal code block as fallback
+								console.warn('Failed to render code block with extension renderer, falling back to default:', e);
+								extensionRendererContainer.style.display = 'none';
+								normalCodeBlockElement.style.display = '';
+							}
+						}
+					}).catch(e => {
+						console.error('Error finding code block renderer:', e);
+					});
 					const globalIndex = globalCodeBlockIndexStart++;
 					const thisPartIndex = thisPartCodeBlockIndexStart++;
 					let textModel: Promise<ITextModel> | undefined;
@@ -275,7 +323,12 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 						}();
 						this._codeblocks.push(info);
 						orderedDisposablesList.push(ref);
-						return ref.object.element;
+
+						// Add normal code block to wrapper and return wrapper
+						ref.object.element.classList.add('chat-codeblock');
+						normalCodeBlockElement = ref.object.element;
+						wrapperContainer.appendChild(ref.object.element);
+						return wrapperContainer;
 					} else {
 						const requestId = isRequestVM(element) ? element.id : element.requestId;
 						const ref = this.renderCodeBlockPill(element.sessionResource, requestId, inUndoStop, codeBlockInfo.codemapperUri);

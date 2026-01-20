@@ -1,0 +1,34 @@
+{
+	"name": "test-codeblock-renderer",
+	"displayName": "Test Code Block Renderer",
+	"description": "Test extension for chatCodeBlockRenderer API",
+	"version": "0.0.1",
+	"publisher": "test",
+	"engines": {
+		"vscode": "^1.96.0"
+	},
+	"enabledApiProposals": [
+		"chatCodeBlockRenderer"
+	],
+	"activationEvents": [
+		"onChatCodeBlockRenderer:testRenderer.mermaid"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"chatCodeBlockRenderer": [
+			{
+				"id": "testRenderer.mermaid",
+				"displayName": "Mermaid Diagram Renderer",
+				"languageIds": ["mermaid"]
+			}
+		]
+	},
+	"scripts": {
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"devDependencies": {
+		"@types/vscode": "^1.96.0",
+		"typescript": "^5.0.0"
+	}
+}
