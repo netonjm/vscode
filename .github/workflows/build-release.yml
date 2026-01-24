@@ -67,56 +67,6 @@ jobs:
           path: VSCode-win32-x64-*.zip
           retention-days: 30
 
-  build-linux-x64:
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Download Electron
-        run: npm run electron
-
-      - name: Download built-in extensions
-        run: npm run download-builtin-extensions
-
-      - name: Compile and package (minified)
-        run: npm run gulp vscode-linux-x64-min
-
-      - name: Get version
-        id: version
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          COMMIT=$(git rev-parse --short HEAD)
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "COMMIT=$COMMIT" >> $GITHUB_OUTPUT
-
-      - name: Create archive
-        run: |
-          cd ..
-          tar -czvf vscode/VSCode-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz VSCode-linux-x64
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vscode-linux-x64
-          path: VSCode-linux-x64-*.tar.gz
-          retention-days: 30
-
   build-macos-x64:
     runs-on: macos-latest
     timeout-minutes: 120
@@ -208,7 +158,7 @@ jobs:
           retention-days: 30
 
   create-release:
-    needs: [build-windows-x64, build-linux-x64, build-macos-x64, build-macos-arm64]
+    needs: [build-windows-x64, build-macos-x64, build-macos-arm64]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -244,7 +194,6 @@ jobs:
             
             ### Downloads
             - **Windows x64**: `VSCode-win32-x64-*.zip`
-            - **Linux x64**: `VSCode-linux-x64-*.tar.gz`
             - **macOS x64**: `VSCode-darwin-x64-*.zip`
             - **macOS ARM64**: `VSCode-darwin-arm64-*.zip`
             
@@ -259,7 +208,6 @@ jobs:
           prerelease: true
           files: |
             artifacts/vscode-win32-x64/*
-            artifacts/vscode-linux-x64/*
             artifacts/vscode-darwin-x64/*
             artifacts/vscode-darwin-arm64/*
         env:
