@@ -1,0 +1,57 @@
+{
+  "name": "chat-code-renderers",
+  "displayName": "Chat Code Block Renderers",
+  "description": "Custom renderers for code blocks in chat responses",
+  "version": "1.0.0",
+  "publisher": "vscode",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/vscode.git"
+  },
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "enabledApiProposals": [
+    "chatCodeBlockRenderer"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "main": "./out/extension",
+  "activationEvents": [],
+  "contributes": {
+    "configuration": {
+      "title": "Chat Code Block Renderers",
+      "properties": {
+        "chat.codeBlockRenderer.mermaid.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable automatic rendering of Mermaid diagrams in chat code blocks",
+          "scope": "application",
+          "tags": [
+            "experimental"
+          ]
+        }
+      }
+    },
+    "chatCodeBlockRenderer": [
+      {
+        "id": "vscode.mermaidCodeBlock",
+        "displayName": "Mermaid Diagram Renderer",
+        "languageIds": ["mermaid"],
+        "when": "config.chat.codeBlockRenderer.mermaid.enabled"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "gulp compile-extension:chat-code-renderers",
+    "watch": "gulp watch-extension:chat-code-renderers"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.10"
+  }
+}

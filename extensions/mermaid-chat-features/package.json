@@ -14,8 +14,7 @@
     "vscode": "^1.104.0"
   },
   "enabledApiProposals": [
-    "chatOutputRenderer",
-    "chatCodeBlockRenderer"
+    "chatOutputRenderer"
   ],
   "capabilities": {
     "virtualWorkspaces": true,
@@ -38,15 +37,6 @@
           "tags": [
             "experimental"
           ]
-        },
-        "chat.codeBlockRenderer.mermaid.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable automatic rendering of Mermaid diagrams in chat code blocks",
-          "scope": "application",
-          "tags": [
-            "experimental"
-          ]
         }
       }
     },
@@ -56,14 +46,6 @@
         "mimeTypes": [
           "text/vnd.mermaid"
         ]
-      }
-    ],
-    "chatCodeBlockRenderer": [
-      {
-        "id": "vscode.mermaidCodeBlock",
-        "displayName": "Mermaid Diagram Renderer",
-        "languageIds": ["mermaid"],
-        "when": "config.chat.codeBlockRenderer.mermaid.enabled"
       }
     ],
     "languageModelTools": [
