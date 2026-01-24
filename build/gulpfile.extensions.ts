@@ -56,6 +56,7 @@ const compilations = [
 	'extensions/media-preview/tsconfig.json',
 	'extensions/merge-conflict/tsconfig.json',
 	'extensions/mermaid-chat-features/tsconfig.json',
+	'extensions/chat-code-renderers/tsconfig.json',
 	'extensions/terminal-suggest/tsconfig.json',
 	'extensions/microsoft-authentication/tsconfig.json',
 	'extensions/notebook-renderers/tsconfig.json',

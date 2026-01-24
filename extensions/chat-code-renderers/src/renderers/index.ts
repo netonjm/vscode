@@ -8,6 +8,8 @@
  * Add new renderers here as they are created.
  */
 export * as mermaid from './mermaid';
+export * as plotly from './plotly';
+export * as recharts from './recharts';
 
 // Future renderers:
 // export * as latex from './latex';

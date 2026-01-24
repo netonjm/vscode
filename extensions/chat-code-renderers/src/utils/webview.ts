@@ -17,12 +17,13 @@ export function escapeHtml(str: string): string {
 
 /**
  * Escape code for safe embedding in JavaScript template literals.
+ * Handles backslashes, backticks, and template literal expressions.
  */
 export function escapeForJs(code: string): string {
 	return code
-		.replace(/\\/g, '\\\\')
-		.replace(/`/g, '\\`')
-		.replace(/\$/g, '\\$');
+		.replace(/\\/g, '\\\\')        // Escape backslashes first
+		.replace(/`/g, '\\`')          // Escape backticks
+		.replace(/\$\{/g, '\\${');     // Escape template literal expressions
 }
 
 /**
