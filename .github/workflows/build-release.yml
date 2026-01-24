@@ -1,0 +1,266 @@
+name: Build and Release VS Code
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., 1.109.0-custom)'
+        required: false
+        default: ''
+
+env:
+  NODE_OPTIONS: --max-old-space-size=8192
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Electron
+        run: npm run electron
+
+      - name: Download built-in extensions
+        run: npm run download-builtin-extensions
+
+      - name: Compile and package (minified)
+        run: npm run gulp vscode-win32-x64-min
+
+      - name: Get version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $commit = git rev-parse --short HEAD
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "COMMIT=$commit" >> $env:GITHUB_OUTPUT
+
+      - name: Create archive
+        shell: pwsh
+        run: |
+          $parentPath = Split-Path -Parent (Get-Location)
+          Compress-Archive -Path "$parentPath\VSCode-win32-x64\*" -DestinationPath "VSCode-win32-x64-${{ steps.version.outputs.VERSION }}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-win32-x64
+          path: VSCode-win32-x64-*.zip
+          retention-days: 30
+
+  build-linux-x64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential g++ libx11-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python-is-python3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Electron
+        run: npm run electron
+
+      - name: Download built-in extensions
+        run: npm run download-builtin-extensions
+
+      - name: Compile and package (minified)
+        run: npm run gulp vscode-linux-x64-min
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "COMMIT=$COMMIT" >> $GITHUB_OUTPUT
+
+      - name: Create archive
+        run: |
+          cd ..
+          tar -czvf vscode/VSCode-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz VSCode-linux-x64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-linux-x64
+          path: VSCode-linux-x64-*.tar.gz
+          retention-days: 30
+
+  build-macos-x64:
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Electron
+        run: npm run electron
+
+      - name: Download built-in extensions
+        run: npm run download-builtin-extensions
+
+      - name: Compile and package (minified)
+        run: npm run gulp vscode-darwin-x64-min
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "COMMIT=$COMMIT" >> $GITHUB_OUTPUT
+
+      - name: Create archive
+        run: |
+          cd ..
+          zip -r vscode/VSCode-darwin-x64-${{ steps.version.outputs.VERSION }}.zip VSCode-darwin-x64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-darwin-x64
+          path: VSCode-darwin-x64-*.zip
+          retention-days: 30
+
+  build-macos-arm64:
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Electron
+        run: npm run electron
+
+      - name: Download built-in extensions
+        run: npm run download-builtin-extensions
+
+      - name: Compile and package (minified)
+        run: npm run gulp vscode-darwin-arm64-min
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "COMMIT=$COMMIT" >> $GITHUB_OUTPUT
+
+      - name: Create archive
+        run: |
+          cd ..
+          zip -r vscode/VSCode-darwin-arm64-${{ steps.version.outputs.VERSION }}.zip VSCode-darwin-arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-darwin-arm64
+          path: VSCode-darwin-arm64-*.zip
+          retention-days: 30
+
+  create-release:
+    needs: [build-windows-x64, build-linux-x64, build-macos-x64, build-macos-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "COMMIT=$COMMIT" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Code - OSS v${{ steps.version.outputs.VERSION }} (${{ steps.version.outputs.COMMIT }})"
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## Code - OSS Build
+            
+            This is a custom build of VS Code (Code - OSS) from branch `${{ github.ref_name }}`.
+            
+            ### Downloads
+            - **Windows x64**: `VSCode-win32-x64-*.zip`
+            - **Linux x64**: `VSCode-linux-x64-*.tar.gz`
+            - **macOS x64**: `VSCode-darwin-x64-*.zip`
+            - **macOS ARM64**: `VSCode-darwin-arm64-*.zip`
+            
+            ### Installation
+            1. Download the archive for your platform
+            2. Extract to a folder
+            3. Run `Code - OSS` (Windows) or `code-oss` (Linux/macOS)
+            
+            ### Commit
+            Built from commit: ${{ github.sha }}
+          draft: false
+          prerelease: true
+          files: |
+            artifacts/vscode-win32-x64/*
+            artifacts/vscode-linux-x64/*
+            artifacts/vscode-darwin-x64/*
+            artifacts/vscode-darwin-arm64/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
